@@ -1,6 +1,5 @@
 import requests
 
-
 BASE_URL = "https://api.binance.com"
 
 
