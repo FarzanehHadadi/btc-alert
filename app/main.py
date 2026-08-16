@@ -1,18 +1,25 @@
 from dotenv import load_dotenv
 
 load_dotenv()
+from datetime import datetime, timezone
 
-from analysis import calculate_features, is_interesting
+from analysis import (
+    calculate_features,
+    is_interesting,
+    prepare_llm_data,
+)
 from coingecko import get_90_days_data
 from database import (
     get_active_subscribers,
     get_last_90_days,
     get_update_offset,
+    save_analysis,
     save_market_data,
     save_update_offset,
     subscribe,
     unsubscribe,
 )
+from gemini import analyze_market
 from telegram import get_updates, send_message
 
 
@@ -48,6 +55,26 @@ def process_telegram_updates():
                 )
 
         save_update_offset(update_id + 1)
+
+
+def format_ai_message(result, price: float) -> str:
+    return (
+        "🧠 BTC AI ANALYSIS\n\n"
+        f"💰 Price: ${price:,.2f}\n\n"
+        f"🎯 Overall: {result.overall_score}/100\n"
+        f"📌 Assessment: {result.assessment}\n"
+        f"🤖 Confidence: {result.confidence:.0%}\n\n"
+        "📊 Strategies\n\n"
+        f"Mean Reversion: {result.mean_reversion.score}/100\n"
+        f"Trend Following: {result.trend_following.score}/100\n"
+        f"Momentum: {result.momentum.score}/100\n"
+        f"Support/Resistance: {result.support_resistance.score}/100\n"
+        f"Volatility Breakout: {result.volatility_breakout.score}/100\n\n"
+        "📌 Reasons:\n"
+        + "\n".join(f"• {item}" for item in result.reasons)
+        + "\n\n⚠️ Risks:\n"
+        + "\n".join(f"• {item}" for item in result.risks)
+    )
 
 
 def broadcast_message(message: str):
@@ -86,29 +113,46 @@ def main():
             print(f"{key}: {value}")
 
     interesting = is_interesting(features)
-
-    print(f"\nInteresting market: {interesting}")
+    ai_result = None
 
     if interesting:
-        message = (
-            "🧠 BTC MARKET ALERT\n\n"
-            f"💰 Price: ${features['current_price']:,.2f}\n"
-            f"📉 90D Low: ${features['low_90d']:,.2f}\n"
-            f"📈 90D High: ${features['high_90d']:,.2f}\n"
-            f"📊 7D Change: {features['change_7d']:.2%}\n"
-            f"📊 30D Change: {features['change_30d']:.2%}\n\n"
-            "🤖 Market conditions are interesting.\n"
-            "AI analysis will be triggered."
+        llm_data = prepare_llm_data(historical_data)
+
+        try:
+            ai_result = analyze_market(
+                features,
+                llm_data,
+            )
+
+            print("\nAI Analysis:")
+            print(ai_result.model_dump_json(indent=2))
+
+        except Exception as exc:
+            print(f"Gemini analysis failed: {exc}")
+
+    if ai_result:
+        save_analysis(
+            {
+                "timestamp": datetime.now(timezone.utc),
+                "price": features["current_price"],
+                **ai_result.model_dump(),
+            }
+        )
+        message = format_ai_message(
+            ai_result,
+            features["current_price"],
         )
     else:
         message = (
             "🟢 BTC HOURLY UPDATE\n\n"
+            "No significant market setup detected."
             f"💰 Price: ${features['current_price']:,.2f}\n"
             f"📉 90D Low: ${features['low_90d']:,.2f}\n"
             f"📈 90D High: ${features['high_90d']:,.2f}\n"
             f"📊 7D Change: {features['change_7d']:.2%}\n"
-            f"📊 30D Change: {features['change_30d']:.2%}\n\n"
-            "No significant market setup detected."
+            f"📊 30D Change: {features['change_30d']:.2%}\n"
+            f"📉 Distance from 90D Low: "
+            f"{features['distance_from_low']:.2%}\n\n"
         )
 
     broadcast_message(message)

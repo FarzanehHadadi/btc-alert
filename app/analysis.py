@@ -1,3 +1,5 @@
+from collections import defaultdict
+from datetime import datetime, timezone
 from statistics import mean, pstdev
 
 
@@ -62,3 +64,51 @@ def is_interesting(features: dict) -> bool:
             features["volume_change"] >= 0.50,
         ]
     )
+
+
+def prepare_llm_data(data: list[dict]) -> dict:
+    daily = defaultdict(list)
+
+    for item in data:
+        dt = datetime.fromtimestamp(
+            item["timestamp"] / 1000,
+            tz=timezone.utc,
+        )
+
+        day = dt.date().isoformat()
+
+        daily[day].append(item)
+
+    daily_data = []
+
+    for day, items in sorted(daily.items()):
+        prices = [item["price"] for item in items]
+
+        volumes = [item["volume"] for item in items if item.get("volume") is not None]
+
+        daily_data.append(
+            {
+                "date": day,
+                "open": round(prices[0], 2),
+                "high": round(max(prices), 2),
+                "low": round(min(prices), 2),
+                "close": round(prices[-1], 2),
+                "volume": round(sum(volumes), 2),
+            }
+        )
+
+    recent_hourly = [
+        {
+            "timestamp": item["timestamp"],
+            "price": round(item["price"], 2),
+            "volume": round(item["volume"], 2)
+            if item.get("volume") is not None
+            else None,
+        }
+        for item in data[-24 * 7 :]
+    ]
+
+    return {
+        "daily_90d": daily_data,
+        "recent_7d_hourly": recent_hourly,
+    }
