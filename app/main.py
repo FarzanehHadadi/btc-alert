@@ -4,8 +4,7 @@ from telegram import send_message
 
 load_dotenv()
 
-# THRESHOLD = 0.002
-THRESHOLD = 1
+LOW_THRESHOLD = 0.002
 
 
 def main():
@@ -18,13 +17,29 @@ def main():
     print(f"10-day low: ${ten_day_low:,.2f}")
     print(f"Distance: {distance:.2%}")
 
-    if distance <= THRESHOLD:
-        send_message(
-            f"🚨 BTC Alert!\n\n"
-            f"Current: ${current_price:,.2f}\n"
-            f"10-day low: ${ten_day_low:,.2f}\n"
-            f"Distance: {distance:.2%}"
+    # Normal hourly update
+    message = (
+        f"🟢 BTC Hourly Update\n\n"
+        f"💰 Current: ${current_price:,.2f}\n"
+        f"📉 10D Low: ${ten_day_low:,.2f}\n"
+        f"📏 Distance: {distance:.2%}"
+    )
+
+    send_message(message)
+
+    # Low alert
+    if distance <= LOW_THRESHOLD:
+        alert = (
+            "🚨🚨🚨 BTC LOW ALERT 🚨🚨🚨\n\n"
+            "🟢🟢🟢🟢🟢🟢🟢\n\n"
+            f"💰 Current: ${current_price:,.2f}\n"
+            f"📉 10D Low: ${ten_day_low:,.2f}\n"
+            f"📏 Distance: {distance:.2%}\n\n"
+            "⚡ BTC has reached the 10-day low zone.\n"
+            "👀 BUY-WATCH SIGNAL"
         )
+
+        send_message(alert)
 
 
 if __name__ == "__main__":
