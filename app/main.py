@@ -1,45 +1,117 @@
-from coingecko import get_10_day_low, get_btc_price
 from dotenv import load_dotenv
-from telegram import send_message
 
 load_dotenv()
 
-LOW_THRESHOLD = 0.002
+from analysis import calculate_features, is_interesting
+from coingecko import get_90_days_data
+from database import (
+    get_active_subscribers,
+    get_last_90_days,
+    get_update_offset,
+    save_market_data,
+    save_update_offset,
+    subscribe,
+    unsubscribe,
+)
+from telegram import get_updates, send_message
+
+
+def process_telegram_updates():
+    offset = get_update_offset()
+    updates = get_updates(offset)
+
+    for update in updates:
+        update_id = update["update_id"]
+
+        message = update.get("message")
+
+        if message:
+            chat = message["chat"]
+            chat_id = chat["id"]
+            username = chat.get("username")
+            text = message.get("text", "").strip()
+
+            if text == "/start":
+                subscribe(chat_id, username)
+
+                send_message(
+                    chat_id,
+                    "✅ You are subscribed to BTC alerts.",
+                )
+
+            elif text == "/stop":
+                unsubscribe(chat_id)
+
+                send_message(
+                    chat_id,
+                    "🛑 You are unsubscribed from BTC alerts.",
+                )
+
+        save_update_offset(update_id + 1)
+
+
+def broadcast_message(message: str):
+    subscribers = get_active_subscribers()
+
+    for subscriber in subscribers:
+        chat_id = subscriber["chat_id"]
+
+        try:
+            send_message(chat_id, message)
+        except Exception as exc:
+            print(f"Failed to send message to {chat_id}: {exc}")
 
 
 def main():
-    current_price = get_btc_price()
-    ten_day_low = get_10_day_low()
+    process_telegram_updates()
+    # Update market data
+    data = get_90_days_data()
 
-    distance = (current_price - ten_day_low) / ten_day_low
+    print(f"Received {len(data)} records from CoinGecko")
 
-    print(f"Current BTC price: ${current_price:,.2f}")
-    print(f"10-day low: ${ten_day_low:,.2f}")
-    print(f"Distance: {distance:.2%}")
+    save_market_data(data)
 
-    # Normal hourly update
-    message = (
-        f"🟢 BTC Hourly Update\n\n"
-        f"💰 Current: ${current_price:,.2f}\n"
-        f"📉 10D Low: ${ten_day_low:,.2f}\n"
-        f"📏 Distance: {distance:.2%}"
-    )
+    # Read stored 90-day dataset
+    historical_data = get_last_90_days()
 
-    send_message(message)
+    print(f"Loaded {len(historical_data)} records from MongoDB")
 
-    # Low alert
-    if distance <= LOW_THRESHOLD:
-        alert = (
-            "🚨🚨🚨 BTC LOW ALERT 🚨🚨🚨\n\n"
-            "🟢🟢🟢🟢🟢🟢🟢\n\n"
-            f"💰 Current: ${current_price:,.2f}\n"
-            f"📉 10D Low: ${ten_day_low:,.2f}\n"
-            f"📏 Distance: {distance:.2%}\n\n"
-            "⚡ BTC has reached the 10-day low zone.\n"
-            "👀 BUY-WATCH SIGNAL"
+    features = calculate_features(historical_data)
+
+    print("\nMarket features:")
+    for key, value in features.items():
+        if isinstance(value, float):
+            print(f"{key}: {value:.4f}")
+        else:
+            print(f"{key}: {value}")
+
+    interesting = is_interesting(features)
+
+    print(f"\nInteresting market: {interesting}")
+
+    if interesting:
+        message = (
+            "🧠 BTC MARKET ALERT\n\n"
+            f"💰 Price: ${features['current_price']:,.2f}\n"
+            f"📉 90D Low: ${features['low_90d']:,.2f}\n"
+            f"📈 90D High: ${features['high_90d']:,.2f}\n"
+            f"📊 7D Change: {features['change_7d']:.2%}\n"
+            f"📊 30D Change: {features['change_30d']:.2%}\n\n"
+            "🤖 Market conditions are interesting.\n"
+            "AI analysis will be triggered."
+        )
+    else:
+        message = (
+            "🟢 BTC HOURLY UPDATE\n\n"
+            f"💰 Price: ${features['current_price']:,.2f}\n"
+            f"📉 90D Low: ${features['low_90d']:,.2f}\n"
+            f"📈 90D High: ${features['high_90d']:,.2f}\n"
+            f"📊 7D Change: {features['change_7d']:.2%}\n"
+            f"📊 30D Change: {features['change_30d']:.2%}\n\n"
+            "No significant market setup detected."
         )
 
-        send_message(alert)
+    broadcast_message(message)
 
 
 if __name__ == "__main__":

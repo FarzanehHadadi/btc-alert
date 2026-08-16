@@ -2,7 +2,7 @@ name: BTC Alert
 
 on:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "13 * * * *"
   workflow_dispatch:
 
 jobs:
