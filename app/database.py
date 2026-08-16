@@ -1,10 +1,17 @@
 import os
 from datetime import datetime, timedelta, timezone
 
+from dotenv import load_dotenv
 from pymongo import MongoClient, UpdateOne
 
-client = MongoClient(os.getenv("MONGODB_URI"))
+load_dotenv()
 
+mongo_uri = os.getenv("MONGODB_URI")
+
+if not mongo_uri:
+    raise RuntimeError("MONGODB_URI is not set")
+
+client = MongoClient(mongo_uri)
 db = client["btc_alert"]
 
 market_data = db["market_data"]
