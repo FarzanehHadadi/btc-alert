@@ -1,4 +1,4 @@
-from binance import get_10_day_low, get_btc_price
+from coingecko import get_10_day_low, get_btc_price
 from dotenv import load_dotenv
 from telegram import send_message
 
