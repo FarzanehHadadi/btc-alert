@@ -19,7 +19,7 @@ from database import (
     subscribe,
     unsubscribe,
 )
-from gemini import analyze_market
+from gemini import analyze_market, validate_trade_signal
 from telegram import get_updates, send_message
 
 
@@ -58,23 +58,47 @@ def process_telegram_updates():
 
 
 def format_ai_message(result, price: float) -> str:
-    return (
-        "🧠 BTC AI ANALYSIS\n\n"
+    signal_icons = {
+        "BUY": "🟢🟢🟢",
+        "SELL": "🔴🔴🔴",
+        "WATCH": "🟡",
+        "WAIT": "⚪",
+    }
+
+    message = (
+        f"{signal_icons[result.assessment]} BTC AI ANALYSIS\n\n"
         f"💰 Price: ${price:,.2f}\n\n"
+        "📊 Strategies\n\n"
+        f"↩️ Mean Reversion: {result.mean_reversion.score}/100\n"
+        f"📈 Trend Following: {result.trend_following.score}/100\n"
+        f"⚡ Momentum: {result.momentum.score}/100\n"
+        f"📍 Support/Resistance: {result.support_resistance.score}/100\n"
+        f"💥 Volatility Breakout: {result.volatility_breakout.score}/100\n\n"
         f"🎯 Overall: {result.overall_score}/100\n"
         f"📌 Assessment: {result.assessment}\n"
-        f"🤖 Confidence: {result.confidence:.0%}\n\n"
-        "📊 Strategies\n\n"
-        f"Mean Reversion: {result.mean_reversion.score}/100\n"
-        f"Trend Following: {result.trend_following.score}/100\n"
-        f"Momentum: {result.momentum.score}/100\n"
-        f"Support/Resistance: {result.support_resistance.score}/100\n"
-        f"Volatility Breakout: {result.volatility_breakout.score}/100\n\n"
-        "📌 Reasons:\n"
+        f"🤖 Confidence: {result.confidence:.0%}\n"
+    )
+
+    signal = result.trade_signal
+
+    if signal.signal in ("BUY", "SELL"):
+        message += (
+            "\n━━━━━━━━━━━━━━\n\n"
+            f"{'🟢' if signal.signal == 'BUY' else '🔴'} "
+            f"Signal: {signal.signal}\n"
+            f"🎯 Target: ${signal.target_price:,.2f}\n"
+            f"🛑 Invalidation: ${signal.invalidation_price:,.2f}\n"
+            f"📌 {signal.rationale}\n"
+        )
+
+    message += (
+        "\n📌 Reasons:\n"
         + "\n".join(f"• {item}" for item in result.reasons)
         + "\n\n⚠️ Risks:\n"
         + "\n".join(f"• {item}" for item in result.risks)
     )
+
+    return message
 
 
 def broadcast_message(message: str):
@@ -122,6 +146,10 @@ def main():
             ai_result = analyze_market(
                 features,
                 llm_data,
+            )
+            validate_trade_signal(
+                ai_result,
+                features["current_price"],
             )
 
             print("\nAI Analysis:")
