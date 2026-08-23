@@ -81,11 +81,14 @@ def analyze_market(features: dict, llm_data: list[dict]) -> AIAnalysis:
     Consider conflicting signals and downside risk.
     After evaluating the five strategies, produce an overall trading assessment.
 
-    The assessment must be one of:
+   The "assessment" field MUST be exactly one of:
     BUY
     SELL
     WATCH
     WAIT
+
+    Do not put an explanation in the assessment field.
+    Put explanations in "reasons" and "rationale".
 
     If the assessment is BUY:
     - provide a realistic upside target price based only on the supplied data

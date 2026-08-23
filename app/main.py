@@ -64,9 +64,10 @@ def format_ai_message(result, price: float) -> str:
         "WATCH": "🟡",
         "WAIT": "⚪",
     }
+    icon = signal_icons.get(result.assessment, "⚪")
 
     message = (
-        f"{signal_icons[result.assessment]} BTC AI ANALYSIS\n\n"
+        f"{icon} BTC AI ANALYSIS\n\n"
         f"💰 Price: ${price:,.2f}\n\n"
         f"📌 Assessment: {result.assessment}\n"
         "📊 Strategies\n\n"
