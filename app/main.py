@@ -68,6 +68,7 @@ def format_ai_message(result, price: float) -> str:
     message = (
         f"{signal_icons[result.assessment]} BTC AI ANALYSIS\n\n"
         f"💰 Price: ${price:,.2f}\n\n"
+        f"📌 Assessment: {result.assessment}\n"
         "📊 Strategies\n\n"
         f"↩️ Mean Reversion: {result.mean_reversion.score}/100\n"
         f"📈 Trend Following: {result.trend_following.score}/100\n"
@@ -75,7 +76,6 @@ def format_ai_message(result, price: float) -> str:
         f"📍 Support/Resistance: {result.support_resistance.score}/100\n"
         f"💥 Volatility Breakout: {result.volatility_breakout.score}/100\n\n"
         f"🎯 Overall: {result.overall_score}/100\n"
-        f"📌 Assessment: {result.assessment}\n"
         f"🤖 Confidence: {result.confidence:.0%}\n"
     )
 
