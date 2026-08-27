@@ -1,8 +1,8 @@
-name: BTC Alert
+name: Alert System
 
 on:
   schedule:
-    - cron: "22 * * * *"
+    - cron: "*/7 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -21,7 +21,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run BTC alert
+      - name: Run Alert System
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           COINGECKO_API_KEY: ${{ secrets.COINGECKO_API_KEY }}
